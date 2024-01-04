@@ -6,20 +6,6 @@ const LimitSizeStream = require('./LimitSizeStream');
 
 const server = new http.Server();
 
-/**
- * Для решения проблем с тестом "ошибка 413"
- * Соединение не закрвыается на Node 20
- * И `after((done) => {` падает, так как не дожидается `server.close(done)`
- */
-(function patchClose() {
-  const originalClose = server.close.bind(server)
-
-  server.close = (...args) => {
-    server.closeAllConnections()
-    originalClose(...args)
-  }
-})()
-
 const logError = (message, err) => {
   if (err) {
     console.log(`${message};`, err)
