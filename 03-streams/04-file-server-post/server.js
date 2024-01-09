@@ -1,8 +1,16 @@
 const url = require('url');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
+const LimitSizeStream = require('./LimitSizeStream');
 
 const server = new http.Server();
+
+const logError = (message, err) => {
+  if (err) {
+    console.log(`${message};`, err)
+  }
+}
 
 server.on('request', (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -12,7 +20,58 @@ server.on('request', (req, res) => {
 
   switch (req.method) {
     case 'POST':
+      if (pathname.includes('/')) {
+        res.statusCode = 400;
+        res.end();
+        break;
+      }
 
+      const writeableStream = fs.createWriteStream(filepath, {
+        flags: 'wx'
+      });
+      
+      const limitedStream = new LimitSizeStream({limit: 1 * 1024 * 1024})
+
+      const removeFile = () => fs.unlink(filepath, (err) => logError('Remove file error', err))
+
+      req.on('close', () => {
+        if (!req.complete) {
+          writeableStream.close()
+          removeFile()
+        }
+      })
+
+      writeableStream.on('error', (err) => {
+        logError('Write file error', err)
+
+        if (err.code === 'EEXIST') {
+          res.statusCode = 409;
+        } else {
+          res.statusCode = 500;
+        }
+
+        res.end();
+      })
+
+      writeableStream.on('finish', () => {
+        res.statusCode = 201;
+        res.end();
+      })
+
+      limitedStream.on('error', (err) => {
+        logError('Size limit error', err)
+
+        if (err.code === 'LIMIT_EXCEEDED') {
+          removeFile()
+          res.statusCode = 413;
+        } else {
+          res.statusCode = 500;
+        }
+
+        res.end();
+      })
+
+      req.pipe(limitedStream).pipe(writeableStream)
       break;
 
     default:
