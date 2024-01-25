@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 module.exports = {
   mongodb: {
     uri: (process.env.NODE_ENV === 'test') ?
