@@ -4,30 +4,16 @@ const sendMail = require('../libs/sendMail');
 
 module.exports.register = async (ctx, next) => {
   const {email, displayName, password} = ctx.request.body;
-  const user = await User.findOne({email});
-
-  if (user) {
-    ctx.status = 400;
-
-    ctx.body = {
-      errors: {
-        email: 'Такой email уже существует',
-      },
-    };
-
-    return;
-  }
-
   const verificationToken = uuid();
 
-  const createdUser = await User.create({
+  const user = await User.create({
     email,
     displayName,
     verificationToken,
   });
 
-  await createdUser.setPassword(password);
-  await createdUser.save();
+  await user.setPassword(password);
+  await user.save();
 
   await sendMail({
     template: 'confirmation',
